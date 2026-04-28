@@ -1,0 +1,258 @@
+class Game {
+    field Array cards;       // valores de las 6 cartas (1-5)
+    field Array isSelected;  // 0 = no seleccionada, 1 = seleccionada
+    field int cursor;        // carta sobre la que esta la flecha (0-5)
+    field int score;         // puntuacion del jugador
+    field int seed;          // semilla para numeros pseudoaleatorios
+    field boolean roundDone; // verdadero si la ronda termino (gano o se quemo)
+
+    constructor Game new() {
+        let cards = Array.new(6);
+        let isSelected = Array.new(6);
+        let cursor = 0;
+        let score = 0;
+        let seed = 12345;
+        let roundDone = false;
+        return this;
+    }
+
+    method void dispose() {
+        do cards.dispose();
+        do isSelected.dispose();
+        do Memory.deAlloc(this);
+        return;
+    }
+
+    // Generador pseudoaleatorio: devuelve un valor entre 1 y 5.
+    // Incrementa con 7 (coprimo con 5) para cubrir todos los residuos.
+    method int nextRand() {
+        let seed = seed + 7;
+        if (seed > 32760) {
+            let seed = seed - 32760;
+        }
+        return (seed - ((seed / 5) * 5)) + 1;
+    }
+
+    method void newRound() {
+        var int i;
+        let i = 0;
+        while (i < 6) {
+            let cards[i] = nextRand();
+            let isSelected[i] = 0;
+            let i = i + 1;
+        }
+        let cursor = 0;
+        let roundDone = false;
+        return;
+    }
+
+    // Coordenada x izquierda de la carta i en pixeles
+    method int cardX1(int i) {
+        return 22 + (i * 80);
+    }
+
+    // Coordenada x derecha de la carta i en pixeles
+    method int cardX2(int i) {
+        return 72 + (i * 80);
+    }
+
+    // Columna de texto (0-63) para centrar el numero en la carta i
+    method int cardCol(int i) {
+        return 5 + (i * 10);
+    }
+
+    // Suma de los valores de las cartas seleccionadas
+    method int selectedSum() {
+        var int sum, i;
+        let sum = 0;
+        let i = 0;
+        while (i < 6) {
+            if (isSelected[i] = 1) {
+                let sum = sum + cards[i];
+            }
+            let i = i + 1;
+        }
+        return sum;
+    }
+
+    // Dibuja la carta i con borde grueso si esta seleccionada
+    method void drawCard(int i) {
+        var int x1, x2;
+        let x1 = cardX1(i);
+        let x2 = cardX2(i);
+
+        if (isSelected[i] = 1) {
+            // Borde grueso negro para indicar seleccion
+            do Screen.setColor(true);
+            do Screen.drawRectangle(x1, 40, x2, 115);
+            do Screen.setColor(false);
+            do Screen.drawRectangle(x1 + 5, 45, x2 - 5, 110);
+        } else {
+            // Fondo blanco con borde fino
+            do Screen.setColor(false);
+            do Screen.drawRectangle(x1, 40, x2, 115);
+            do Screen.setColor(true);
+            do Screen.drawLine(x1, 40, x2, 40);
+            do Screen.drawLine(x1, 115, x2, 115);
+            do Screen.drawLine(x1, 40, x1, 115);
+            do Screen.drawLine(x2, 40, x2, 115);
+        }
+
+        // Valor de la carta centrado verticalmente en la carta (fila texto 7)
+        do Output.moveCursor(7, cardCol(i));
+        do Output.printInt(cards[i]);
+
+        return;
+    }
+
+    // Muestra u oculta la flecha "^" debajo de la carta indicada
+    method void drawArrow(int pos, boolean visible) {
+        do Output.moveCursor(12, cardCol(pos));
+        if (visible) {
+            do Output.printString("^");
+        } else {
+            do Output.printString(" ");
+        }
+        return;
+    }
+
+    // Actualiza el marcador en pantalla
+    method void drawScore() {
+        do Output.moveCursor(1, 0);
+        do Output.printString("Puntos: ");
+        do Output.printInt(score);
+        do Output.printString("   ");
+        return;
+    }
+
+    // Actualiza la linea de suma actual
+    method void drawStatus(int sum) {
+        do Output.moveCursor(17, 0);
+        do Output.printString("Suma actual: ");
+        do Output.printInt(sum);
+        do Output.printString("    ");
+        return;
+    }
+
+    // Dibuja todos los elementos de la pantalla desde cero
+    method void drawAll() {
+        var int i;
+        do Screen.clearScreen();
+
+        // Titulo centrado en fila 0
+        do Output.moveCursor(0, 20);
+        do Output.printString("BLACKJACK - Llega a 11!");
+
+        do drawScore();
+
+        // Dibujar las 6 cartas
+        let i = 0;
+        while (i < 6) {
+            do drawCard(i);
+            let i = i + 1;
+        }
+
+        // Flecha bajo la carta actual
+        do drawArrow(cursor, true);
+
+        // Suma actual
+        do drawStatus(selectedSum());
+
+        // Instrucciones en la parte inferior
+        do Output.moveCursor(20, 0);
+        do Output.printString("Flechas:mover  Enter:selec  R:nueva  Q:salir");
+
+        return;
+    }
+
+    method void run() {
+        var char key;
+        var boolean waitRelease;
+        var int sum;
+
+        do newRound();
+        do drawAll();
+        let waitRelease = false;
+
+        while (true) {
+            let key = Keyboard.keyPressed();
+
+            if (~waitRelease) {
+
+                // Flecha izquierda: mover cursor a la izquierda
+                if (key = 130) {
+                    do drawArrow(cursor, false);
+                    if (cursor > 0) {
+                        let cursor = cursor - 1;
+                    }
+                    do drawArrow(cursor, true);
+                    let waitRelease = true;
+                }
+
+                // Flecha derecha: mover cursor a la derecha
+                if (key = 132) {
+                    do drawArrow(cursor, false);
+                    if (cursor < 5) {
+                        let cursor = cursor + 1;
+                    }
+                    do drawArrow(cursor, true);
+                    let waitRelease = true;
+                }
+
+                // Enter: seleccionar/deseleccionar la carta actual
+                if (key = 128) {
+                    if (~roundDone) {
+                        // Alternar seleccion
+                        if (isSelected[cursor] = 0) {
+                            let isSelected[cursor] = 1;
+                        } else {
+                            let isSelected[cursor] = 0;
+                        }
+                        do drawCard(cursor);
+
+                        let sum = selectedSum();
+                        do drawStatus(sum);
+
+                        if (sum = 11) {
+                            let score = score + 1;
+                            do drawScore();
+                            do Output.moveCursor(18, 0);
+                            do Output.printString("GANASTE! Suma = 11!  Presiona R ");
+                            let roundDone = true;
+                        }
+                        if (sum > 11) {
+                            do Output.moveCursor(18, 0);
+                            do Output.printString("Te quemaste! >11.    Presiona R ");
+                            let roundDone = true;
+                        }
+                    }
+                    let waitRelease = true;
+                }
+
+                // R o r: nueva ronda
+                if ((key = 82) | (key = 114)) {
+                    do newRound();
+                    do drawAll();
+                    let waitRelease = true;
+                }
+
+                // Q o q: salir
+                if ((key = 81) | (key = 113)) {
+                    return;
+                }
+
+            }
+
+            // Esperar a que el jugador suelte la tecla antes de aceptar otra
+            if (waitRelease) {
+                if (key = 0) {
+                    let waitRelease = false;
+                }
+            }
+
+            do Sys.wait(20);
+        }
+
+        return;
+    }
+}
