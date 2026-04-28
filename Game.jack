@@ -84,11 +84,9 @@ class Game {
             do Output.printString("+---+");
         }
 
-        // Fila del numero: "| X |"
+        // Fila con signo de interrogacion: el valor es oculto pero se suma internamente
         do Output.moveCursor(5, col);
-        do Output.printString("| ");
-        do Output.printInt(cards[i]);
-        do Output.printString(" |");
+        do Output.printString("| ? |");
 
         // Fila inferior
         do Output.moveCursor(6, col);
